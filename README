@@ -1,0 +1,15 @@
+Schedular for AWS Services:
+
+Modules in Use : os , json , requests , boto3 , time , yaml , argparse
+
+1) We are using two AWS services to start/stop anytime using name/tags of the resources: ASG and RDS
+
+2) Before using this module you need to modify "config.yaml" .Put you service name and tags according to the file. You can use any other filename too here and pass it with -f option.
+
+3) Command for starting & stopping the schedular :
+#python schedular.py -f config.yaml -w nile -r rds -a start 
+( config.yaml is the filename, -w is the workspace name, -r is the resources, -a is the action you can choose start and stop).
+
+4) For ASG we are using Python Pickle file for storing the previous state of autoscaling before it make the min/max/desired to zero. and while starting the infra it uses same numbers from the file to fill in ASG.
+
+5) For slack notification - you need to replace the slack URL in the schedular.py file and it will post the notifications to slack. 
