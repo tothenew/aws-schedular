@@ -10,6 +10,6 @@ Modules in Use : os , json , requests , boto3 , time , yaml , argparse
 #python schedular.py -f config.yaml -w nile -r rds -a start 
 ( config.yaml is the filename, -w is the workspace name, -r is the resources, -a is the action you can choose start and stop).
 
-4) For ASG we are using Python Pickle file for storing the previous state of autoscaling before it make the min/max/desired to zero. and while starting the infra it uses same numbers from the file to fill in ASG.
+4) For ASG we are created a scheduled action under that ASG with current values of min,max,desired before stopping the ASG and while we do start it will pick those values from scheduled action. For both the action script will check the healthy instance count and when its zero then it will complete the stop action and in start action when desired number of servers are healthy then it will complete the action. Same will happen in RDS and it will check the RDS state till its stopped or available for both action. 
 
 5) For slack notification - you need to replace the slack URL in the schedular.py file and it will post the notifications to slack. 
