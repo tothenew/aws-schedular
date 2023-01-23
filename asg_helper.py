@@ -4,21 +4,13 @@ import requests
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
+schedular_summary_message = []
+
 # from aws_task.Helpers.slack_notify import SlackNotify
 
 class AsgModule:
-    def __init__(self, client, asg_previous_data_filename,slack_url):
+    def __init__(self, client):
         self.client = client
-        self.asg_previous_data_filename = asg_previous_data_filename
-        self.slack_url = slack_url
-
-    def send_message(self, text):
-        payload = {
-            "text": text
-        }
-        url = self.slack_url
-        r = requests.post(url, json=payload)
-        print(r.text)
 
     def create_asg_schedule_action(self,asg_name, min, max, desired):
         response = self.client.put_scheduled_update_group_action(
@@ -35,6 +27,10 @@ class AsgModule:
         )
 
     def get_asg_scheduled_action(self, asg_name):
+        check_asg = self.get_asg_by_name(asg_name)
+        if check_asg['data']['desired'] > 0 and check_asg['success'] == True:
+            return {"success": False, "data": asg_name + "This ASG is already Started"}
+
         response = self.client.describe_scheduled_actions(
             AutoScalingGroupName=asg_name
         )
@@ -76,39 +72,6 @@ class AsgModule:
 
         return asgList
 
-#Below comparision function is not in use at the moment.
-    def compare_asg_list(self, old_list, new_list):
-        unique_asg_data_list = []
-        new_asg_data = new_list
-        previous_data = old_list
-        if len(previous_data) == 0:
-            return new_list
-        for old_asg in previous_data:
-            for new_asg in new_asg_data:
-                if old_asg['data']['asg_name'] == new_asg['data']['asg_name']:
-                    pre_data_index = previous_data.index(old_asg)
-                    old_asg['data']['min_size'] = new_asg['data']['min_size']
-                    old_asg['data']['max_size'] = new_asg['data']['max_size']
-                    old_asg['data']['desired'] = new_asg['data']['desired']
-                    previous_data[pre_data_index] = old_asg
-                else:
-                    unique_asg_data_list.append(new_asg)
-        new_data = previous_data + unique_asg_data_list
-        return new_data
-#
-
-    def write_previous_data_to_file(self, asg_detail_list):
-
-        print("write new data", asg_detail_list)
-        #previous_data = self.read_pkl_file()
-        #new_asg_data_list = self.compare_asg_list(previous_data, asg_detail_list)
-        with open(self.asg_previous_data_filename, 'wb') as file:
-            # A new file will be created
-            print("Writing previous ASG data.....")
-            pickle.dump(asg_detail_list, file)
-            print("Writing Completed !")
-        return True
-
     def check_instance_start_status(self, asgDetail):
         asgName = asgDetail['data']['asg_name']
         desired_count = asgDetail['data']['desired']
@@ -122,7 +85,8 @@ class AsgModule:
                 for instance_detail in asg_instance_list:
                     if instance_detail['health_status'] == "Healthy":
                         instance_count = instance_count + 1
-        self.send_message(str(asgName) + "Asg Schedular is started !")
+        schedular_summary_message.append(str(asgName) + "Asg Schedular is started !")
+        #self.send_message(str(asgName) + "Asg Schedular is started !")
         return "All Instances are in:", asgName, "is Healthy"
 
     def get_asg_start_status(self, asgName):
@@ -147,7 +111,8 @@ class AsgModule:
             resp = response['AutoScalingGroups'][0]['Instances']
             if len(resp) == 0:
                 status = False
-                self.send_message(str(asgname) + "Asg Schedular is stoped !")
+                schedular_summary_message.append(str(asgname['data']['asg_name']) + " Asg Schedular is stopped !")
+                #self.send_message(str(asgname) + "Asg Schedular is stoped !")
         return str(asgname['data']['asg_name']) + ": Stopped Successfully !"
 
     def main_schedular_asg(self, data, action):
@@ -166,6 +131,7 @@ class AsgModule:
             if resp['success']:
                 asgDataList.append(resp)
         self.enable_disable_asg_schedular(asgDataList, action)
+        return schedular_summary_message
 
     def enable_disable_asg_schedular(self, AsgDetailsList, action):
         if action == "start":
@@ -174,21 +140,27 @@ class AsgModule:
                 print("LiveData", live_asg)
                 asg_sa = self.get_asg_scheduled_action(live_asg['data']['asg_name'])
                 print(asg_sa)
-                try:
-                    self.client.update_auto_scaling_group(
-                        AutoScalingGroupName=live_asg['data']['asg_name'], MinSize=asg_sa['min_value'],
-                        MaxSize=asg_sa['max_value'], DesiredCapacity=asg_sa['desired'])
+                if "success" in asg_sa:
+                    if asg_sa['success'] == False:
+                        schedular_summary_message.append(str(live_asg['data']['asg_name'])+ "is already started")
+                else:
+                    try:
+                        self.client.update_auto_scaling_group(
+                            AutoScalingGroupName=live_asg['data']['asg_name'], MinSize=asg_sa['min_value'],
+                            MaxSize=asg_sa['max_value'], DesiredCapacity=asg_sa['desired'])
 
-                    self.delete_get_scheduled_action(live_asg['data']['asg_name'])
-                except:
-                    print("Issue in:" + live_asg['data']['asg_name'] + "\n---------\n")
-                    return self.send_message("Issue in:" + live_asg['data']['asg_name'] + "---------\n")
+                        self.delete_get_scheduled_action(live_asg['data']['asg_name'])
+                    except:
+                        print("Issue in:" + live_asg['data']['asg_name'] + "\n---------\n")
+                        schedular_summary_message.append("Issue in:" + live_asg['data']['asg_name'] + "\n---------\n")
 
-            print("Process Started at: ", datetime.now())
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                for result in executor.map(self.check_instance_start_status, AsgDetailsList):
-                    print(result)
-            print("Process ended at: ", datetime.now())
+            if len(schedular_summary_message) == 0:
+
+                print("Process Started at: ", datetime.now())
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    for result in executor.map(self.check_instance_start_status, AsgDetailsList):
+                        print(result)
+                print("Process ended at: ", datetime.now())
 
         if action == "stop":
             print("You choose stop the Schedular..")
@@ -202,7 +174,6 @@ class AsgModule:
                         AutoScalingGroupName=asg['data']['asg_name'], MinSize=0, MaxSize=0, DesiredCapacity=0)
                 except:
                     print("Issue in:" + asg['data']['asg_name'] + "\n---------\n")
-                    return self.send_message("Issue in:" + asg['data']['asg_name'] + "---------\n")
 
             print("Process Started at: ", datetime.now())
             with ThreadPoolExecutor(max_workers=10) as executor:
