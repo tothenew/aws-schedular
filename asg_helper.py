@@ -1,12 +1,7 @@
-import os.path
-import pickle
-import requests
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 schedular_summary_message = []
-
-# from aws_task.Helpers.slack_notify import SlackNotify
 
 class AsgModule:
     def __init__(self, client):
@@ -85,8 +80,7 @@ class AsgModule:
                 for instance_detail in asg_instance_list:
                     if instance_detail['health_status'] == "Healthy":
                         instance_count = instance_count + 1
-        schedular_summary_message.append(str(asgName) + "Asg Schedular is started !")
-        #self.send_message(str(asgName) + "Asg Schedular is started !")
+        schedular_summary_message.append(str(asgName) + " Asg Schedular is started !")
         return "All Instances are in:", asgName, "is Healthy"
 
     def get_asg_start_status(self, asgName):
@@ -112,7 +106,6 @@ class AsgModule:
             if len(resp) == 0:
                 status = False
                 schedular_summary_message.append(str(asgname['data']['asg_name']) + " Asg Schedular is stopped !")
-                #self.send_message(str(asgname) + "Asg Schedular is stoped !")
         return str(asgname['data']['asg_name']) + ": Stopped Successfully !"
 
     def main_schedular_asg(self, data, action):
@@ -142,7 +135,7 @@ class AsgModule:
                 print(asg_sa)
                 if "success" in asg_sa:
                     if asg_sa['success'] == False:
-                        schedular_summary_message.append(str(live_asg['data']['asg_name'])+ "is already started")
+                        schedular_summary_message.append(str(live_asg['data']['asg_name'])+ " is already started")
                 else:
                     try:
                         self.client.update_auto_scaling_group(
@@ -180,5 +173,3 @@ class AsgModule:
                 for result in executor.map(self.get_asg_stop_status, AsgDetailsList):
                     print(result)
             print("Process ended at: ", datetime.now())
-
-

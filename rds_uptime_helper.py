@@ -55,3 +55,7 @@ class RdsUptimeModule:
         # Print the uptime
         print(f'Uptime in last 24 hrs: {final_uptime} hours')
         return final_uptime
+
+
+
+

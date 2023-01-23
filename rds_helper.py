@@ -5,6 +5,7 @@ from rds_uptime_helper import RdsUptimeModule
 
 schedular_summary_message = []
 
+
 class RdsModule:
     def __init__(self, client, cw_client):
         self.client = client
@@ -54,6 +55,39 @@ class RdsModule:
             DBInstanceIdentifier=instanceName,
         )
 
+    def check_db_status(self, instancedetail):
+        if instancedetail['action'] == "start":
+            first_status_check = self.db_cluster_status(instancedetail['name'])
+            if first_status_check == "available" or first_status_check == "starting":
+                return schedular_summary_message
+            status_check = True
+            while status_check:
+                status = self.db_cluster_status(instancedetail['name'])
+                time.sleep(30)
+                if status == "starting":
+                    print(str(instancedetail['name']) + " Cluster is in starting state..")
+                if status == "available":
+                    status_check = False
+                    schedular_summary_message.append(instancedetail['name'] + " Cluster is started!.")
+            return schedular_summary_message
+        if instancedetail['action'] == "stop":
+            first_status_check = self.db_cluster_status(str(instancedetail['name']))
+            if first_status_check == "stopped" or first_status_check == "stopping":
+                return str(instancedetail['name']) + " is already in Stopping or Stopped state."
+            status_check = True
+            while status_check:
+                status = self.db_cluster_status(instancedetail['name'])
+                time.sleep(30)
+                if status == "stopping":
+                    print(str(instancedetail['name']) + " Cluster is in stopping state..")
+                if status == "stopped":
+                    rds_uptime_module = RdsUptimeModule(self.cw_client)
+                    resp = rds_uptime_module.get_instance_uptime(instancedetail['name'])
+                    status_check = False
+                    schedular_summary_message.append(
+                        instancedetail['name'] + "Cluster is stopped!." + "Uptime is :" + "(" + str(resp) + " Hrs)")
+            return schedular_summary_message
+
     def start_db_cluster(self, instanceName):
         first_status_check = self.db_cluster_status(instanceName)
         if first_status_check == "available" or first_status_check == "starting":
@@ -62,15 +96,6 @@ class RdsModule:
         self.client.start_db_cluster(
             DBClusterIdentifier=instanceName,
         )
-        status_check = True
-        while status_check:
-            status = self.db_cluster_status(instanceName)
-            time.sleep(30)
-            if status == "starting":
-                print(str(instanceName) + " Cluster is in starting state..")
-            if status == "available":
-                status_check = False
-                schedular_summary_message.append(instanceName + " Cluster is started!.")
 
     def stop_db_cluster(self, instanceName):
         first_status_check = self.db_cluster_status(instanceName)
@@ -81,17 +106,6 @@ class RdsModule:
         self.client.stop_db_cluster(
             DBClusterIdentifier=instanceName,
         )
-        status_check = True
-        while status_check:
-            status = self.db_cluster_status(instanceName)
-            time.sleep(300)
-            if status == "stopping":
-                print(str(instanceName) + " Cluster is in stopping state..")
-            if status == "stopped":
-                rds_uptime_module = RdsUptimeModule(self.cw_client)
-                resp = rds_uptime_module.get_instance_uptime(instanceName)
-                status_check = False
-                schedular_summary_message.append(instanceName + "Cluster is stopped!." + "Uptime is :" +"("+str(resp)+" Hrs)" )
 
     # To fetch the status of the DB instance.
     def db_cluster_status(self, db_name):
@@ -119,7 +133,10 @@ class RdsModule:
                 for result in executor.map(self.stop_db_cluster, finalDbClusterList):
                     print(result)
             print("Process ended at: ", datetime.datetime.now())
-            return schedular_summary_message
+            final_resp = []
+            for i in finalDbClusterList:
+                final_resp.append({"name": i, "action": action})
+            return final_resp
             # self.send_message(str(schedular_summary_message) + " These Clusters are stopped !")
 
         if action == "start":
@@ -128,5 +145,8 @@ class RdsModule:
                 for result in executor.map(self.start_db_cluster, finalDbClusterList):
                     print(result)
             print("Process ended at: ", datetime.datetime.now())
-            return schedular_summary_message
-            # self.send_message(str(schedular_summary_message) + " These Clusters are started !")
+            final_resp = []
+            for i in finalDbClusterList:
+                final_resp.append({"name": i, "action": action})
+            return final_resp
+

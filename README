@@ -1,15 +1,34 @@
 Schedular for AWS Services:
 
-Modules in Use : os , json , requests , boto3 , time , yaml , argparse
+OVERVIEW:
+This tool can shut down the infra by changing values in ASG and also can start/stop RDS and send summary to slack.
 
-1) We are using two AWS services to start/stop anytime using name/tags of the resources: ASG and RDS
+FEATURES:
+1. Can start/stop servers under ASG to bring the infra down/up.
+2. Can start/Stop the RDS along with it.
+3. Will report uptime of RDS of last 24 hours, for all the mentioned RDS while doing stop action.
+4. Can send the consolidated report to slack channel.
+5. Will auto create one scheduled action while stopping ASG, so it can be used at start action to fetch the old values from it.
 
-2) Before using this module you need to modify "config.yaml" .Put you service name and tags according to the file. You can use any other filename too here and pass it with -f option.
 
-3) Command for starting & stopping the schedular :
-#python schedular.py -f config.yaml -w nile -r rds -a start 
+SUPPORTED SERVICES:
+Currently ASG and RDS are supported under this project to bring down the infra and RDS.
+
+HOW DOES IT WORK?
+Boto3 API is used to connect the resources and do the described action on them.
+
+Pre-requisites:
+1. To install the required modules :
+    pip install -r requirements.txt
+2. Update Access key,secret key and SLACK URL in the global variables files.
+3. Modules in Use : os,requests,boto3,time,yaml,argparse.
+4. Before using this module you need to modify "config.yaml" .Put you service name and tags according to the file. You can use any other filename too here and pass it with -f option.
+
+
+COMMAND TO RUN THE SCRIPT: (SYNTAX)
+Command for starting & stopping the schedular :
+python schedular.py -f config.yaml -w nile -r rds -a start 
 ( config.yaml is the filename, -w is the workspace name, -r is the resources, -a is the action you can choose start and stop).
 
-4) For ASG we are created a scheduled action under that ASG with current values of min,max,desired before stopping the ASG and while we do start it will pick those values from scheduled action. For both the action script will check the healthy instance count and when its zero then it will complete the stop action and in start action when desired number of servers are healthy then it will complete the action. Same will happen in RDS and it will check the RDS state till its stopped or available for both action. 
 
-5) For slack notification - you need to replace the slack URL in the schedular.py file and it will post the notifications to slack. 
+
