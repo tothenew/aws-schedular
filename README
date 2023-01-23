@@ -1,0 +1,34 @@
+Schedular for AWS Services:
+
+OVERVIEW:
+This tool can shut down the infra by changing values in ASG and also can start/stop RDS and send summary to slack.
+
+FEATURES:
+1. Can start/stop servers under ASG to bring the infra down/up.
+2. Can start/Stop the RDS along with it.
+3. Will report uptime of RDS of last 24 hours, for all the mentioned RDS while doing stop action.
+4. Can send the consolidated report to slack channel.
+5. Will auto create one scheduled action while stopping ASG, so it can be used at start action to fetch the old values from it.
+
+
+SUPPORTED SERVICES:
+Currently ASG and RDS are supported under this project to bring down the infra and RDS.
+
+HOW DOES IT WORK?
+Boto3 API is used to connect the resources and do the described action on them.
+
+Pre-requisites:
+1. To install the required modules :
+    pip install -r requirements.txt
+2. Update Access key,secret key and SLACK URL in the global variables files.
+3. Modules in Use : os,requests,boto3,time,yaml,argparse.
+4. Before using this module you need to modify "config.yaml" .Put you service name and tags according to the file. You can use any other filename too here and pass it with -f option.
+
+
+COMMAND TO RUN THE SCRIPT: (SYNTAX)
+Command for starting & stopping the schedular :
+python schedular.py -f config.yaml -w nile -r rds -a start 
+( config.yaml is the filename, -w is the workspace name, -r is the resources, -a is the action you can choose start and stop).
+
+
+

@@ -1,0 +1,13 @@
+workspaces:
+    nile:
+        slack_channel:
+        rds:
+            name: ["master-db"]
+            tags:
+                Environment : ["development"]
+
+            # role_arn: ""
+        asg:
+            name: ["testASG"]
+            tags:
+              Environment: ["PreProdSGM"]
